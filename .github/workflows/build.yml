@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies (git, java, etc.)
+      - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y \
@@ -27,12 +27,12 @@ jobs:
           echo "Java version:"
           java -version
 
-      - name: Install Buildozer & Python deps
+      - name: Install Buildozer and Python packages
         run: |
           python -m pip install --upgrade pip
           pip install buildozer Cython virtualenv pillow openpyxl
 
-      - name: Install Android SDK & cmdline-tools
+      - name: Install Android SDK and NDK
         env:
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
         run: |
@@ -40,16 +40,12 @@ jobs:
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           cd $ANDROID_SDK_ROOT/cmdline-tools
-          # cmdline-tools (última) -> carpeta 'latest'
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
           unzip -q cmdtools.zip
           rm cmdtools.zip
           mv cmdline-tools latest
 
-          # Añadimos al PATH el sdkmanager y tools necesarios
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
-          # Aceptar licencias e instalar componentes
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
@@ -67,13 +63,11 @@ jobs:
             ${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:
             $PATH
         run: |
-          set -e
-          echo "Comprobando git en PATH:"
+          echo "Comprobando git:"
           which git && git --version
           echo "Comprobando sdkmanager:"
           which sdkmanager && sdkmanager --version || true
 
-          # Compilar APK
           buildozer android debug --verbose
 
       - name: Upload APK artifact
