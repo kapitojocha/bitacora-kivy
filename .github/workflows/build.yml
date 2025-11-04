@@ -20,31 +20,24 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            python3-pip \
-            openjdk-17-jdk \
-            zip unzip \
-            libffi-dev libssl-dev libsqlite3-dev \
-            liblzma-dev zlib1g-dev git
+            python3-pip openjdk-17-jdk zip unzip wget git \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
           pip install --upgrade pip setuptools wheel cython
 
       - name: Install Buildozer
         run: |
           pip install buildozer kivy pillow openpyxl
 
-      - name: Accept Android SDK Licenses
+      - name: Install Android SDK & cmdline-tools
         run: |
-          mkdir -p ~/.android
-          yes | sudo mkdir -p $ANDROID_HOME/licenses || true
-          yes | sudo bash -c 'echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\n601085b94cd77f0b54ff86406957099ebe79c4d6" > $ANDROID_HOME/licenses/android-sdk-license'
-          yes | sudo bash -c 'echo -e "d56f5187479451eabf01fb78af6dfcb131a6481e" > $ANDROID_HOME/licenses/android-sdk-preview-license'
-
-      - name: Install AIDL manually (Build Tools)
-        run: |
-          echo "Installing Android build-tools 34.0.0"
-          mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/
-          wget -q https://dl.google.com/android/repository/build-tools_r34-linux.zip -O build-tools.zip
-          unzip -q build-tools.zip -d ~/.buildozer/android/platform/android-sdk/build-tools/
-          rm build-tools.zip
+          mkdir -p ~/.buildozer/android/platform
+          cd ~/.buildozer/android/platform
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip -d cmdline-tools
+          mv cmdline-tools ~/.buildozer/android/platform/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/bin/sdkmanager --licenses
+          $ANDROID_SDK_ROOT/cmdline-tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
 
       - name: Build APK
         run: |
