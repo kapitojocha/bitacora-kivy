@@ -42,13 +42,14 @@ jobs:
           rm cmdtools.zip
           mv cmdline-tools latest
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
 
       - name: Build APK
         env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+          PATH: ${{ runner.home }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/.buildozer/android/platform/android-sdk/platform-tools:${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:$PATH
         run: |
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           buildozer android debug --verbose
