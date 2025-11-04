@@ -16,17 +16,20 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies
+      - name: Install system dependencies (git, java, etc.)
         run: |
           sudo apt update
           sudo apt install -y \
-            openjdk-17-jdk python3-pip unzip wget git \
+            git openjdk-17-jdk python3-pip unzip wget \
             libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
+          echo "Git version:"
+          git --version
+          echo "Java version:"
           java -version
 
-      - name: Install Buildozer
+      - name: Install Buildozer & Python deps
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install buildozer Cython virtualenv pillow openpyxl
 
       - name: Install Android SDK & cmdline-tools
@@ -37,21 +40,40 @@ jobs:
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           cd $ANDROID_SDK_ROOT/cmdline-tools
+          # cmdline-tools (última) -> carpeta 'latest'
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
           unzip -q cmdtools.zip
           rm cmdtools.zip
           mv cmdline-tools latest
+
+          # Añadimos al PATH el sdkmanager y tools necesarios
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+          # Aceptar licencias e instalar componentes
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;34.0.0" \
+            "ndk;25.1.8937393"
 
       - name: Build APK
         env:
           ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-          PATH: ${{ runner.home }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/.buildozer/android/platform/android-sdk/platform-tools:${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:$PATH
+          PATH: >-
+            ${{ runner.home }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:
+            ${{ runner.home }}/.buildozer/android/platform/android-sdk/platform-tools:
+            ${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:
+            $PATH
         run: |
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          set -e
+          echo "Comprobando git en PATH:"
+          which git && git --version
+          echo "Comprobando sdkmanager:"
+          which sdkmanager && sdkmanager --version || true
+
+          # Compilar APK
           buildozer android debug --verbose
 
       - name: Upload APK artifact
