@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -14,43 +14,57 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.10'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install system dependencies
         run: |
-          sudo apt update
-          sudo apt install -y \
-            python3-pip openjdk-17-jdk zip unzip wget git \
-            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
-          pip install --upgrade pip setuptools wheel cython
+          sudo apt-get update
+          sudo apt-get install -y \
+            libssl-dev libffi-dev python3-dev zlib1g-dev \
+            libsqlite3-dev libjpeg-dev libfreetype6-dev \
+            pkg-config unzip openjdk-17-jdk wget
 
       - name: Install Buildozer
         run: |
-          pip install buildozer kivy pillow openpyxl
+          python -m pip install --upgrade pip
+          pip install --upgrade Cython virtualenv buildozer
+          buildozer version
 
+      # --- SDK y cmdline-tools (con la ruta correcta a sdkmanager) ---
       - name: Install Android SDK & cmdline-tools
         run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
-          cd ~/.buildozer/android/platform/android-sdk/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip -d latest
-          rm commandlinetools-linux-11076708_latest.zip
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
-
-      - name: Build APK
-        run: |
           set -e
-          echo "Starting Buildozer build..."
-          buildozer android debug
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd $ANDROID_SDK_ROOT/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
+          unzip -q cmdtools.zip
+          rm cmdtools.zip
+          # mover a la ruta que Buildozer espera
+          mv cmdline-tools latest
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+
+      - name: Build APK (debug)
         env:
-          BUILDOZER_WARN_ON_ROOT: 1
-          BUILDOZER_DEBUG: 1
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        run: |
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          buildozer android debug --verbose
 
       - name: Upload APK artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: bitacora-maquinas-apk
+          name: bitacora-apk
           path: bin/*.apk
+          if-no-files-found: error
