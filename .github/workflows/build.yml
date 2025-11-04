@@ -19,14 +19,13 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          # <-- IMPORTANTE: instalar 'which' para que buildozer detecte git
+          # eliminamos "which", usamos command -v que viene en bash
           sudo apt-get install -y \
-            git which openjdk-17-jdk unzip wget \
+            git openjdk-17-jdk unzip wget \
             libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
             build-essential pkg-config
-          echo "Git version:" && git --version || true
-          echo "Java version:" && java -version || true
-          echo "Which version:" && which --version || true
+          echo "Git version:" && git --version
+          echo "Java version:" && java -version
 
       - name: Install Buildozer and Python packages
         run: |
@@ -42,7 +41,6 @@ jobs:
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           cd "$ANDROID_SDK_ROOT/cmdline-tools"
 
-          # Herramientas de línea de comandos de Android
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
           unzip -q cmdtools.zip
           rm -f cmdtools.zip
@@ -67,13 +65,10 @@ jobs:
             ${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:
             $PATH
         run: |
-          echo "Comprobando 'which' y 'git' en PATH:"
-          command -v which || true
-          command -v git || true
-          which git || true
-          git --version || true
-
-          # Compilación en modo debug
+          echo "Verificando git y sdkmanager:"
+          command -v git
+          git --version
+          command -v sdkmanager || echo "sdkmanager no encontrado"
           buildozer android debug --verbose
 
       - name: Upload APK artifact
