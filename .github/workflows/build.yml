@@ -16,30 +16,22 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libssl-dev libffi-dev python3-dev zlib1g-dev \
-            libsqlite3-dev libjpeg-dev libfreetype6-dev \
-            pkg-config unzip openjdk-17-jdk wget
+          sudo apt update
+          sudo apt install -y \
+            openjdk-17-jdk python3-pip unzip wget git \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
+          java -version
 
       - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade Cython virtualenv buildozer
-          buildozer version
+          pip install --upgrade pip
+          pip install buildozer Cython virtualenv pillow openpyxl
 
-      # --- SDK y cmdline-tools (con la ruta correcta a sdkmanager) ---
       - name: Install Android SDK & cmdline-tools
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
         run: |
           set -e
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
@@ -48,13 +40,12 @@ jobs:
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
           unzip -q cmdtools.zip
           rm cmdtools.zip
-          # mover a la ruta que Buildozer espera
           mv cmdline-tools latest
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-            "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
 
-      - name: Build APK (debug)
+      - name: Build APK
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
@@ -67,4 +58,3 @@ jobs:
         with:
           name: bitacora-apk
           path: bin/*.apk
-          if-no-files-found: error
