@@ -31,14 +31,20 @@ jobs:
         run: |
           pip install buildozer kivy pillow openpyxl
 
-      - name: Debug repository structure
+      - name: Accept Android SDK Licenses
         run: |
-          echo "Current files:"
-          ls -R .
+          mkdir -p ~/.android
+          yes | sudo mkdir -p $ANDROID_HOME/licenses || true
+          yes | sudo bash -c 'echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\n601085b94cd77f0b54ff86406957099ebe79c4d6" > $ANDROID_HOME/licenses/android-sdk-license'
+          yes | sudo bash -c 'echo -e "d56f5187479451eabf01fb78af6dfcb131a6481e" > $ANDROID_HOME/licenses/android-sdk-preview-license'
 
-      - name: Initialize Buildozer
+      - name: Install AIDL manually (Build Tools)
         run: |
-          buildozer init || true
+          echo "Installing Android build-tools 34.0.0"
+          mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/
+          wget -q https://dl.google.com/android/repository/build-tools_r34-linux.zip -O build-tools.zip
+          unzip -q build-tools.zip -d ~/.buildozer/android/platform/android-sdk/build-tools/
+          rm build-tools.zip
 
       - name: Build APK
         run: |
