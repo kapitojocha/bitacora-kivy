@@ -18,14 +18,15 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt update
-          sudo apt install -y \
-            git openjdk-17-jdk python3-pip unzip wget \
-            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev
-          echo "Git version:"
-          git --version
-          echo "Java version:"
-          java -version
+          sudo apt-get update
+          # <-- IMPORTANTE: instalar 'which' para que buildozer detecte git
+          sudo apt-get install -y \
+            git which openjdk-17-jdk unzip wget \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
+            build-essential pkg-config
+          echo "Git version:" && git --version || true
+          echo "Java version:" && java -version || true
+          echo "Which version:" && which --version || true
 
       - name: Install Buildozer and Python packages
         run: |
@@ -38,16 +39,19 @@ jobs:
         run: |
           set -e
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT/cmdline-tools
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          cd "$ANDROID_SDK_ROOT/cmdline-tools"
+
+          # Herramientas de línea de comandos de Android
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
           unzip -q cmdtools.zip
-          rm cmdtools.zip
+          rm -f cmdtools.zip
           mv cmdline-tools latest
 
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+
+          yes | sdkmanager --licenses
+          sdkmanager \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;34.0.0" \
@@ -63,11 +67,13 @@ jobs:
             ${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:
             $PATH
         run: |
-          echo "Comprobando git:"
-          which git && git --version
-          echo "Comprobando sdkmanager:"
-          which sdkmanager && sdkmanager --version || true
+          echo "Comprobando 'which' y 'git' en PATH:"
+          command -v which || true
+          command -v git || true
+          which git || true
+          git --version || true
 
+          # Compilación en modo debug
           buildozer android debug --verbose
 
       - name: Upload APK artifact
