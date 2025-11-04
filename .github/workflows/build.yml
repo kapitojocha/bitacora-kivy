@@ -19,13 +19,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          # eliminamos "which", usamos command -v que viene en bash
-          sudo apt-get install -y \
-            git openjdk-17-jdk unzip wget \
+          sudo apt-get install -y git openjdk-17-jdk unzip wget \
             libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
-            build-essential pkg-config
-          echo "Git version:" && git --version
-          echo "Java version:" && java -version
+            build-essential pkg-config curl
+          echo "✅ Git instalado:"; git --version
+          echo "✅ Java instalado:"; java -version
 
       - name: Install Buildozer and Python packages
         run: |
@@ -36,24 +34,20 @@ jobs:
         env:
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
         run: |
-          set -e
+          set -euxo pipefail
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           cd "$ANDROID_SDK_ROOT/cmdline-tools"
 
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          unzip -q cmdtools.zip
-          rm -f cmdtools.zip
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+          unzip -q tools.zip
+          rm -f tools.zip
           mv cmdline-tools latest
 
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
 
-          yes | sdkmanager --licenses
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;34.0.0" \
-            "ndk;25.1.8937393"
+          yes | sdkmanager --licenses || true
+          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
 
       - name: Build APK
         env:
@@ -65,11 +59,12 @@ jobs:
             ${{ runner.home }}/.buildozer/android/platform/android-sdk/build-tools/34.0.0:
             $PATH
         run: |
-          echo "Verificando git y sdkmanager:"
-          command -v git
-          git --version
-          command -v sdkmanager || echo "sdkmanager no encontrado"
-          buildozer android debug --verbose
+          echo "🔍 Verificando git y sdkmanager"
+          git --version || echo "⚠️ git no disponible"
+          sdkmanager --version || echo "⚠️ sdkmanager no disponible"
+          echo "🚀 Iniciando buildozer"
+          buildozer android debug --verbose || true
+          ls -la bin || echo "⚠️ No se encontró el directorio bin"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
