@@ -47,4 +47,4 @@ warn_on_root = 1
 
 [android]
 # Para file chooser mediante SAF/Document Picker, plyer ayuda.
-# si necesitas compartir archivos vía “share”, lo hace plyer también.
+# si necesitas compartir archivos vía “share”, lo hace plyer tambi
