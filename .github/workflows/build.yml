@@ -10,22 +10,86 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      # Evitar SDK/NDK externos del runner (que causan AIDL/licencias)
+      - name: Disable external Android SDK/NDK
+        run: |
+          echo "ANDROIDSDK=" >> $GITHUB_ENV
+          echo "ANDROID_HOME=" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=" >> $GITHUB_ENV
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip wget
+
+      - name: Install Buildozer & Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install buildozer Cython virtualenv pillow openpyxl
+          pip install buildozer Cython virtualenv pillow openpyxl plyer
 
-      - name: Build APK
+      # --- Validar que estamos en la RAÍZ y que existe el spec correcto ---
+      - name: Show repo root and spec
+        working-directory: .
         run: |
-          buildozer init || true
-          buildozer android debug
+          echo "=== LS raíz ==="
+          ls -la
+          if [ ! -f buildozer.spec ]; then
+            echo "ERROR: No se encontró buildozer.spec en la RAÍZ"; exit 1
+          fi
+          echo "=== Primeras líneas de buildozer.spec ==="
+          sed -n '1,120p' buildozer.spec
 
-      - name: Upload APK
+      # --- Instalar SDK Android local con build-tools 33.0.2 para evitar AIDL ---
+      - name: Prepare local Android SDK (cmdline-tools + build-tools 33.0.2)
+        run: |
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          cd "$ANDROID_SDK_ROOT"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
+          unzip -q cmdtools.zip -d cmdline-tools
+          mv cmdline-tools/cmdline-tools cmdline-tools/latest
+          rm -f cmdtools.zip
+
+          # Instalar componentes mínimos
+          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+            "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+          yes | cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root="$ANDROID_SDK_ROOT"
+
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+
+      # Cache opcional de buildozer
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+
+      # --- Compilar desde la RAÍZ ---
+      - name: Build APK (debug)
+        working-directory: .
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          echo "Usando ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la
+          # NO ejecutar 'buildozer init' aquí. Vamos directo al build.
+          buildozer -v android debug
+
+      - name: Upload APK artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bitacora-apk
