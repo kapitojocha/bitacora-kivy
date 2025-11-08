@@ -24,15 +24,14 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip wget
+          sudo apt-get install -y git zip unzip wget openjdk-17-jdk
 
-      - name: Install Buildozer & Python deps
+      - name: Install Buildozer and deps
         run: |
           python -m pip install --upgrade pip
           pip install buildozer Cython virtualenv pillow openpyxl plyer
 
-      # --- Instalar SDK Android completo ---
-      - name: Prepare Android SDK
+      - name: Prepare Android SDK (cmdline-tools)
         run: |
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
@@ -43,24 +42,24 @@ jobs:
           rm cmdtools.zip
 
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
-            "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.1.8937393"
 
           yes | cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root="$ANDROID_SDK_ROOT"
 
-          # Crear enlace simbólico para compatibilidad con Buildozer
+          # Crear enlace simbólico (Buildozer espera tools/bin/sdkmanager)
           mkdir -p "$ANDROID_SDK_ROOT/tools/bin"
-          ln -s "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
+          ln -sf "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
 
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROIDSDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
-      - name: Show repo files
+      - name: Mostrar archivos del repo
         run: |
-          echo "=== Estructura del repo ==="
+          echo "=== Archivos ==="
           ls -la
           echo "=== buildozer.spec ==="
-          sed -n '1,100p' buildozer.spec
+          head -n 40 buildozer.spec
 
       - name: Cache Buildozer
         uses: actions/cache@v4
