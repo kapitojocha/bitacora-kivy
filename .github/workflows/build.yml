@@ -15,15 +15,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      # Acción oficial y mantenida por Kivy que prepara TODO (Java/SDK/NDK/build-tools)
       - name: Build with Kivy Buildozer Action
-        uses: kivy/buildozer-action@v1
+        uses: kivy/buildozer-action@v1.0.0
         with:
-          workdir: .                # raíz del repo
-          buildozer_version: latest # o "1.5.0"
+          workdir: .
+          buildozer_version: latest
           command: buildozer android debug
 
-      # Sube el APK generado como artefacto
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
