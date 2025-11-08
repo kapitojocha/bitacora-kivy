@@ -27,7 +27,7 @@ jobs:
 
       - name: Install system packages
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y \
             build-essential \
             ccache \
@@ -36,7 +36,7 @@ jobs:
             unzip \
             libstdc++6 \
             zlib1g zlib1g-dev \
-            libncurses5
+            libncurses6
 
       - name: Prepare Android SDK / cmdline-tools / licenses
         env:
@@ -44,22 +44,15 @@ jobs:
         run: |
           set -e
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-
-          # Descarga cmdline-tools (última estable)
           curl -L https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
           unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
           mv /tmp/cmdtools/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-
-          # Acepta todas las licencias
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-          # Instala versiones concretas y compatibles
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2" \
             "ndk;25.1.8937393" || true
-
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> $GITHUB_ENV
 
@@ -74,9 +67,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: |
           set -e
-          # Limpia cachés previos
           rm -rf .buildozer
-          # Compila
           buildozer android debug --verbose
 
       - name: Locate APK
