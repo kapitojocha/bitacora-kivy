@@ -17,16 +17,15 @@ restore-keys: |
 buildozer-${{ runner.os }}-
 - name: Build with kivy/buildozer (Docker)
 run: |
-# El comando de Buildozer para compilar la aplicación Kivy
+# Comando Buildozer para compilar la app en modo debug
 docker run --rm -v "$PWD":/home/buildozer 
 kivy/buildozer 
 buildozer -v android debug
 - name: Gather APK
 run: |
 mkdir -p dist_apk
-# Copiar el APK de la ruta de 64-bit (arm64-v8a)
+# Copiar el APK de las rutas de compilación
 cp .buildozer/android/platform/build-arm64-v8a/dists//bin/.apk dist_apk/ || true
-# Copiar el APK de la ruta de 32-bit (armeabi-v7a) (si se compila)
 cp .buildozer/android/platform/build-armeabi-v7a/dists//bin/.apk dist_apk/ || true
 cp bin/.apk dist_apk/ || true
 - name: Upload artifact
