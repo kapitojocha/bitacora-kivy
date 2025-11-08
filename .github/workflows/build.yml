@@ -1,90 +1,36 @@
-name: Build Kivy APK
-
+name: Build APK (Kivy)
 on:
-  workflow_dispatch:
-
+workflow_dispatch:
+push:
+branches: [ main, master ]
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Set up job
-        run: echo "Start"
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Setup Java 17 (temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            build-essential \
-            ccache \
-            git \
-            zip \
-            unzip \
-            libstdc++6 \
-            zlib1g zlib1g-dev \
-            libncurses6
-
-      - name: Prepare Android SDK / cmdline-tools / licenses
-        env:
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
-        run: |
-          set -e
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          curl -L https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
-          unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
-          mv /tmp/cmdtools/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "ndk;25.1.8937393" || true
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> $GITHUB_ENV
-
-      - name: Install Buildozer and Python packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install buildozer Cython virtualenv pillow openpyxl plyer
-
-      - name: Build with Buildozer (debug)
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-        run: |
-          set -e
-          rm -rf .buildozer
-          buildozer android debug --verbose
-
-      - name: Locate APK
-        id: locate
-        run: |
-          set -e
-          APK_PATH=$(ls -t bin/*.apk 2>/dev/null | head -n 1 || true)
-          echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
-          if [ -z "$APK_PATH" ]; then
-            echo "No se encontró APK en bin/"
-            exit 1
-          fi
-          echo "APK encontrado: $APK_PATH"
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bitacora-apk
-          path: ${{ steps.locate.outputs.apk }}
-          if-no-files-found: error
+build-apk:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+- name: Cache .buildozer
+uses: actions/cache@v4
+with:
+path: .buildozer
+key: buildozer-{{ runner.os }}-{{ hashFiles('buildozer.spec') }}
+restore-keys: |
+buildozer-${{ runner.os }}-
+- name: Build with kivy/buildozer (Docker)
+run: |
+# El comando de Buildozer para compilar la aplicación Kivy
+docker run --rm -v "$PWD":/home/buildozer 
+kivy/buildozer 
+buildozer -v android debug
+- name: Gather APK
+run: |
+mkdir -p dist_apk
+# Copiar el APK de la ruta de 64-bit (arm64-v8a)
+cp .buildozer/android/platform/build-arm64-v8a/dists//bin/.apk dist_apk/ || true
+# Copiar el APK de la ruta de 32-bit (armeabi-v7a) (si se compila)
+cp .buildozer/android/platform/build-armeabi-v7a/dists//bin/.apk dist_apk/ || true
+cp bin/.apk dist_apk/ || true
+- name: Upload artifact
+uses: actions/upload-artifact@v4
+with:
+name: bitacora-apk
+path: dist_apk/.apk
