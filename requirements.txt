@@ -1,4 +1,4 @@
 kivy==2.2.1
+plyer
 pillow
 openpyxl
-sqlite3
