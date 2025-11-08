@@ -5,32 +5,38 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
+      - name: Set up job
+        run: echo "Start"
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Setup Java 17 (temurin)
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
-          java-version: "17"
+          distribution: temurin
+          java-version: '17'
 
       - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential git zip unzip curl \
-            libffi-dev libssl-dev zlib1g-dev \
-            libbz2-dev libreadline-dev libsqlite3-dev
-          python -m pip install --upgrade pip wheel setuptools
-          python -m pip install "cython<3.1" buildozer==1.5.0 virtualenv
+            build-essential \
+            ccache \
+            git \
+            zip \
+            unzip \
+            libstdc++6 \
+            zlib1g zlib1g-dev \
+            libncurses5
 
       - name: Prepare Android SDK / cmdline-tools / licenses
         env:
@@ -38,42 +44,56 @@ jobs:
         run: |
           set -e
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+
+          # Descarga cmdline-tools (última estable)
           curl -L https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
           unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
           mv /tmp/cmdtools/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
 
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+          # Acepta todas las licencias
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+          # Instala versiones concretas y compatibles
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
-              "platform-tools" \
-              "platforms;android-33" \
-              "build-tools;33.0.2" \
-              "ndk;25.1.8937393" >/dev/null
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.1.8937393" || true
 
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> $GITHUB_ENV
+
+      - name: Install Buildozer and Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer Cython virtualenv pillow openpyxl plyer
 
       - name: Build with Buildozer (debug)
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-        run: |
-          buildozer android debug
-
-      - name: Locate APK
-        id: findapk
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: |
           set -e
-          ROOT="$HOME/.buildozer/android/platform"
-          echo "Buscando APK en $ROOT"
-          APK=$(find "$ROOT" -type f -name "*.apk" | head -n1 || true)
-          if [ -z "$APK" ]; then
-            echo "No se encontró APK. Mostrando árbol de directorios para diagnóstico:"
-            ls -R "$ROOT" || true
+          # Limpia cachés previos
+          rm -rf .buildozer
+          # Compila
+          buildozer android debug --verbose
+
+      - name: Locate APK
+        id: locate
+        run: |
+          set -e
+          APK_PATH=$(ls -t bin/*.apk 2>/dev/null | head -n 1 || true)
+          echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
+          if [ -z "$APK_PATH" ]; then
+            echo "No se encontró APK en bin/"
             exit 1
           fi
-          echo "APK encontrado: $APK"
-          echo "apk=$APK" >> $GITHUB_OUTPUT
+          echo "APK encontrado: $APK_PATH"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: bitacora-apk
-          path: ${{ steps.findapk.outputs.apk }}
+          path: ${{ steps.locate.outputs.apk }}
+          if-no-files-found: error
